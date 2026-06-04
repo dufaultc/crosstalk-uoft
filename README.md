@@ -4,6 +4,11 @@ Cross-Training in AI and Laboratory Knowledge for Drug Discovery
 
 https://datasciences.utoronto.ca/crosstalk-bootcamp/
 
+questions: ben.sanchez@utoronto.ca
+Use subject: [CrossTalk]
+## Github
+Is pending
+
 ## Kaggle
 
 [https://www.kaggle.com/competitions/cross-talk-round-4](https://www.kaggle.com/competitions/cross-talk-round-4/)
