@@ -6,10 +6,10 @@ https://datasciences.utoronto.ca/crosstalk-bootcamp/
 
 ## Kaggle
 
-[https://www.kaggle.com/competitions/cross-talk-round-3](https://www.kaggle.com/competitions/cross-talk-round-4/)
+[https://www.kaggle.com/competitions/cross-talk-round-4](https://www.kaggle.com/competitions/cross-talk-round-4/)
 
 **Kaggle sign-up:**
-[[https://www.kaggle.com/t/9c7fbe5809c84378a7dce33dab4c5cb7](https://www.kaggle.com/t/354a7b034dd5430cb7ed7196e98666cc)](https://www.kaggle.com/t/5456e50428164c2bb88e5c2dc6babdab)
+[https://www.kaggle.com/t/9c7fbe5809c84378a7dce33dab4c5cb7](https://www.kaggle.com/t/354a7b034dd5430cb7ed7196e98666cc)](https://www.kaggle.com/t/5456e50428164c2bb88e5c2dc6babdab)
 
 ## Getting Started in the notebooks
 
