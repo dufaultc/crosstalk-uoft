@@ -1,0 +1,13 @@
+numpy
+pandas
+scikit-learn
+xgboost
+catboost
+gdown
+pympler
+seaborn
+rdkit
+umap-learn
+tqdm
+pyarrow
+scipy
