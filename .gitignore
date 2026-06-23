@@ -32,9 +32,9 @@ MANIFEST
 # Local datasets and submission files
 *.parquet
 *.csv
-crosstalk_template/data/*.parquet
-crosstalk_template/submission.csv
-crosstalk_template/models/best_model.pkl
+submission_template/data/*.parquet
+submission_template/submission.csv
+submission_template/models/best_model.pkl
 
 # IDEs and editors
 .vscode/
