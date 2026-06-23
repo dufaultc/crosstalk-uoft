@@ -1,13 +1,18 @@
-"""Module for handling dataset loading for the crosstalk template project."""
+"""Dataset loader to load features and labels from Parquet files.
+
+Example:
+    import src.dataset
+    X, y = src.dataset.load_data("data/train.parquet", ["AVALON", "MACCS"])
+"""
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import scipy.sparse
-from tqdm.auto import tqdm
+import tqdm.auto
 
-FINGERPRINT_TYPES = [
+FINGERPRINTS: list[str] = [
     "ATOMPAIR",
     "MACCS",
     "ECFP6",
@@ -19,62 +24,58 @@ FINGERPRINT_TYPES = [
     "AVALON",
 ]
 
-def basic_dataloader(
-    filepath: str,
-    x_col: str,
-    y_col: str = "DELLabel",
-    max_to_load: int = None,
+
+def load_data(
+    path: str,
+    x_cols: list[str] | str,
+    y_col: str | None = "DELLabel",
+    max_rows: int | None = None,
     chunk_size: int = 20000,
-):
-    """Loads data from a Parquet file into memory as a sparse matrix.
+) -> scipy.sparse.csr_matrix | tuple[scipy.sparse.csr_matrix, np.ndarray]:
+    """Loads Parquet datasets into scipy sparse matrices."""
+    if isinstance(x_cols, str):
+        x_cols = [x_cols]
 
-    Args:
-        filepath: Path to the Parquet file.
-        x_col: Name of the feature column (one of the fingerprint types).
-        y_col: Name of the label column. Set to None to only load features (e.g. for test set).
-        max_to_load: Maximum number of rows to load. If None, loads all rows.
-        chunk_size: Number of rows to read at a time from disk to control memory usage.
+    for col in x_cols:
+        if col not in FINGERPRINTS:
+            raise ValueError(f"Unknown fingerprint: {col}")
 
-    Returns:
-        X: Scipy sparse matrix of features.
-        y: Numpy array of labels if y_col is provided, otherwise only X is returned.
-    """
-    if x_col not in FINGERPRINT_TYPES:
-        raise ValueError(
-            f"Invalid fingerprint type: {x_col}. Supported types: {FINGERPRINT_TYPES}"
-        )
-
-    pf = pq.ParquetFile(filepath)
-    columns = [x_col] + ([y_col] if y_col is not None else [])
+    pf = pq.ParquetFile(path)
+    cols = x_cols + ([y_col] if y_col is not None else [])
     
-    total_rows = pf.metadata.num_rows
-    if max_to_load is None or max_to_load > total_rows:
-        max_to_load = total_rows
+    total = pf.metadata.num_rows
+    limit = total if max_rows is None or max_rows > total else max_rows
 
     mats = []
     y_list = []
     loaded = 0
 
-    n_chunks = int(np.ceil(max_to_load / chunk_size))
-    pbar = tqdm(total=n_chunks, desc="Loading chunks")
+    pbar = tqdm.auto.tqdm(
+        total=int(np.ceil(limit / chunk_size)),
+        desc="Loading chunks",
+    )
 
-    for batch in pf.iter_batches(columns=columns, batch_size=min(chunk_size, max_to_load)):
-        batch_df = pa.Table.from_batches([batch]).to_pandas()
-        remaining = max_to_load - loaded
-        if len(batch_df) > remaining:
-            batch_df = batch_df.iloc[:remaining]
+    for batch in pf.iter_batches(columns=cols, batch_size=min(chunk_size, limit)):
+        df = pa.Table.from_batches([batch]).to_pandas()
+        remaining = limit - loaded
+        if len(df) > remaining:
+            df = df.iloc[:remaining]
             
-        # Convert comma-separated string features to matrix
-        exploded = batch_df[x_col].str.split(",", expand=True).astype(float, copy=False)
-        mats.append(scipy.sparse.csr_matrix(exploded))
+        # Parse and horizontally stack all requested feature columns
+        exploded_list = [
+            scipy.sparse.csr_matrix(
+                df[col].str.split(",", expand=True).astype(float, copy=False)
+            )
+            for col in x_cols
+        ]
+        mats.append(scipy.sparse.hstack(exploded_list))
         
         if y_col is not None:
-            y_list.append(batch_df[y_col].values)
+            y_list.append(df[y_col].values)
             
-        loaded += len(batch_df)
-        del batch_df, exploded
+        loaded += len(df)
         pbar.update(1)
-        if loaded >= max_to_load:
+        if loaded >= limit:
             break
 
     pbar.n = pbar.total
@@ -83,6 +84,5 @@ def basic_dataloader(
 
     X = scipy.sparse.vstack(mats)
     if y_col is not None and y_list:
-        y = np.concatenate(y_list)
-        return X, y
+        return X, np.concatenate(y_list)
     return X

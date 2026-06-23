@@ -1,45 +1,43 @@
-"""Evaluation tools for binary classification and ranking metrics with bootstrapping."""
+"""Evaluation metrics and bootstrap confidence interval helpers.
+
+Example:
+    import src.eval
+    res = src.eval.evaluate(y_true, y_pred_proba)
+"""
 
 import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    balanced_accuracy_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
+import sklearn.metrics as skm
 
-# ----------------------------------------------------------------------
-# 1. Point Metrics
-# ----------------------------------------------------------------------
 
 def accuracy(y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5) -> float:
     """Computes standard accuracy."""
     y_pred = (y_pred_proba >= threshold).astype(int)
-    return accuracy_score(y_true, y_pred)
+    return float(skm.accuracy_score(y_true, y_pred))
 
 
-def balanced_accuracy(y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5) -> float:
+def balanced_accuracy(
+    y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5
+) -> float:
     """Computes balanced accuracy."""
     y_pred = (y_pred_proba >= threshold).astype(int)
-    return balanced_accuracy_score(y_true, y_pred)
+    return float(skm.balanced_accuracy_score(y_true, y_pred))
 
 
 def roc_auc(y_true: np.ndarray, y_pred_proba: np.ndarray) -> float:
     """Computes ROC Area Under Curve (AUC)."""
-    return roc_auc_score(y_true, y_pred_proba)
+    return float(skm.roc_auc_score(y_true, y_pred_proba))
 
 
 def precision(y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5) -> float:
     """Computes precision score."""
     y_pred = (y_pred_proba >= threshold).astype(int)
-    return precision_score(y_true, y_pred, zero_division=0)
+    return float(skm.precision_score(y_true, y_pred, zero_division=0))
 
 
 def recall(y_true: np.ndarray, y_pred_proba: np.ndarray, threshold: float = 0.5) -> float:
     """Computes recall score."""
     y_pred = (y_pred_proba >= threshold).astype(int)
-    return recall_score(y_true, y_pred)
+    return float(skm.recall_score(y_true, y_pred))
 
 
 def hits_at_k(y_true: np.ndarray, y_pred_proba: np.ndarray, k: int) -> float:
@@ -48,7 +46,7 @@ def hits_at_k(y_true: np.ndarray, y_pred_proba: np.ndarray, k: int) -> float:
         raise ValueError("k must be positive")
 
     pos_idx = np.where(y_true == 1)[0]
-    if len(pos_idx) == 0:
+    if not pos_idx.size:
         return 0.0
 
     hits = 0
@@ -70,13 +68,13 @@ def precision_at_k(y_true: np.ndarray, y_pred_proba: np.ndarray, k: int) -> floa
 
     topk = np.argsort(y_pred_proba)[-k:]
     tp = np.sum(y_true[topk] == 1)
-    return tp / k
+    return float(tp / k)
 
 
 def mrr(y_true: np.ndarray, y_pred_proba: np.ndarray) -> float:
     """Computes Mean Reciprocal Rank (MRR) ranking metric."""
     pos_idx = np.where(y_true == 1)[0]
-    if len(pos_idx) == 0:
+    if not pos_idx.size:
         return 0.0
 
     rr = []
@@ -84,12 +82,8 @@ def mrr(y_true: np.ndarray, y_pred_proba: np.ndarray) -> float:
         ps = y_pred_proba[i]
         r = np.sum(y_pred_proba > ps) + 1
         rr.append(1.0 / r)
-    return np.mean(rr)
+    return float(np.mean(rr))
 
-
-# ----------------------------------------------------------------------
-# 2. Bootstrapping & Confidence Intervals
-# ----------------------------------------------------------------------
 
 def bootstrap_estimates(
     y_true: np.ndarray,
@@ -139,7 +133,7 @@ def bootstrap_ci(
         random_seed=random_seed,
         **metric_kwargs,
     )
-    if len(values) == 0:
+    if not values.size:
         return np.nan, np.nan, np.nan
 
     lower_percentile = (1.0 - ci) / 2.0 * 100.0
@@ -149,7 +143,7 @@ def bootstrap_ci(
     return float(np.mean(values)), float(lower_bound), float(upper_bound)
 
 
-def evaluate_predictions(
+def evaluate(
     y_true: np.ndarray,
     y_pred_proba: np.ndarray,
     threshold: float = 0.5,
@@ -157,7 +151,7 @@ def evaluate_predictions(
     ci: float = 0.95,
     n_iterations: int = 1000,
 ) -> dict[str, dict[str, float]]:
-    """Evaluates prediction probabilities and returns point estimates and optionally confidence intervals."""
+    """Evaluates prediction probabilities and returns point estimates and confidence intervals."""
     metrics = {
         "ROC-AUC": (roc_auc, {}),
         "Accuracy": (accuracy, {"threshold": threshold}),
@@ -177,7 +171,7 @@ def evaluate_predictions(
     for name, (metric_fn, kwargs) in metrics.items():
         point_estimate = metric_fn(y_true, y_pred_proba, **kwargs)
         if compute_ci:
-            mean_est, lower, upper = bootstrap_ci(
+            _, lower, upper = bootstrap_ci(
                 y_true,
                 y_pred_proba,
                 metric_fn,
