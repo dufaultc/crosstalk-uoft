@@ -35,6 +35,7 @@ submission_template/
 ---
 
 ## How to Run
+To be sure you can recreate our exact results I suggest installing Miniconda `curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh` and create a conda environment with python version `3.12.12`. Activate this environment then follow the steps below.
 
 1. **Install packages**:
    ```bash
