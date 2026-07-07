@@ -9,7 +9,7 @@ Rationale:
 * All fingerprints (except ATOMPAIR) were used to provide the model with the most information possible about the molecule. We did not see improved performance by narrowing down the fingerprints based on our knowledge of what they capture. ATOMPAIR was not included primarily to increase training speed and because we did not see performance improvement when it was included.
 * We chose to performed combined dimensionality reduction of the train+test dataset in order to create features which distinguish examples in both datasets rather than just the train dataset. This makes our approach transductive. Truncated SVD was chosen for this because it handles our large and sparse input better than other aproaches.
 * An MLP was chosen for the predictor as it was suitable for handling the dense, continuous features we had for our examples after performing dimensionality reduction.  Hyperparameters were mostly chosen based on what seemed reasonable for this model and dataset, and adjusted based on what led to improved validation AUPRC. Training epochs was adjusted to be 50, as this led to maximum validation set AUPRC performance of ~0.885
-* This model achieved 8 hits @ 200, with AUPRC performance of ~0.885 10% Validation set and AUC of ~0.98.
+* This model achieved 8 hits @ 200, with AUPRC performance of ~0.885 and AUC of ~0.98 on our 10% Validation set.
 
 
 ---
