@@ -33,8 +33,8 @@ MANIFEST
 *.parquet
 *.csv
 submission_template/data/*.parquet
-submission_template/submission.csv
-submission_template/models/best_model.pkl
+#submission_template/submission.csv
+#submission_template/models/best_model.pkl
 
 # IDEs and editors
 .vscode/

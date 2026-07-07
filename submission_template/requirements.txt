@@ -11,3 +11,4 @@ umap-learn
 tqdm
 pyarrow
 scipy
+torch
