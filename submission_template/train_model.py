@@ -1,7 +1,7 @@
 """Main training and submission pipeline for the CrossTALK workshop.
 
 Example:
-    $ python train_mlp_model.py
+    $ python train_model.py
 """
 
 import os
@@ -202,7 +202,7 @@ class CrosstalkPipeline(BaseEstimator, ClassifierMixin):
         self.__dict__.update(state)
         self._model = None
 
-CrosstalkPipeline.__module__ = "train_mlp_model"
+CrosstalkPipeline.__module__ = "train_model"
 
 
 def main() -> None:
@@ -336,5 +336,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     import sys
-    sys.modules["train_mlp_model"] = sys.modules[__name__]
+    sys.modules["train_model"] = sys.modules[__name__]
     main()
