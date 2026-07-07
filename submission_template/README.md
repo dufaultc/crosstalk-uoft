@@ -1,4 +1,4 @@
-# DELtheASMS submission
+# Team DELtheASMS! submission
 
 ## Model Writeup (1-2 paragraphs)
 
