@@ -9,7 +9,7 @@ import time
 import random
 import warnings
 import pickle
-
+import tqdm
 import gdown
 import numpy as np
 import pandas as pd
@@ -42,12 +42,14 @@ SEED_MLP = 74
 def seed_everything(seed=74):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
+    
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
 
 
 def download_data() -> None:
@@ -78,8 +80,11 @@ def compute_max_tanimoto(A, B):
 
 def get_or_create_features():
     print("Loading data...")
-    df_train = pd.read_parquet(_P.train_path)
-    df_test = pd.read_parquet(_P.test_path)
+    df_train_full = pd.read_parquet(_P.train_path)
+    df_test_full = pd.read_parquet(_P.test_path)
+    df_train = df_train_full#.iloc[:5000]#.sample(n=5000,random_state=42)
+    df_test = df_test_full#.iloc[:5000]#.sample(n=5000, random_state=42)
+    
     y_train = df_train['DELLabel'].values.astype(np.float32)
     
     train_blocks = []
@@ -99,27 +104,68 @@ def get_or_create_features():
     fp_train_ecfp4 = train_blocks[0]
     fp_test_ecfp4 = test_blocks[0]
     
-    print("Fitting SelectKBest...")
-    pos_indices = (y_train == 1)
-    pos_bit_counts = np.asarray(X_train_full[pos_indices].sum(axis=0)).ravel()
-    keep_mask_active = (pos_bit_counts >= 1)
-    
+    # 1. keep_mask_active
+    keep_mask_path = 'keep_mask_active.pkl'
+    if os.path.exists(keep_mask_path):
+        print(f"Loading keep_mask_active from {keep_mask_path}...")
+        with open(keep_mask_path, 'rb') as f:
+            keep_mask_active = pickle.load(f)
+    else:
+        print(f"Creating keep_mask_active and saving to {keep_mask_path}...")
+        pos_indices = (y_train == 1)
+        pos_bit_counts = np.asarray(X_train_full[pos_indices].sum(axis=0)).ravel()
+        keep_mask_active = (pos_bit_counts >= 1)
+        with open(keep_mask_path, 'wb') as f:
+            pickle.dump(keep_mask_active, f)
+            
     X_train_filtered_1 = X_train_full[:, keep_mask_active]
     X_test_filtered_1 = X_test_full[:, keep_mask_active]
     
-    n_kept_active = np.sum(keep_mask_active)
-    k_val = min(5000, n_kept_active)
-    selector = SelectKBest(score_func=chi2, k=k_val)
-    X_train_filtered_2 = selector.fit_transform(X_train_filtered_1, y_train)
-    X_test_filtered_2 = selector.transform(X_test_filtered_1)
-    
+    # 2. SelectKBest
+    selector_path = 'selector.pkl'
+    if os.path.exists(selector_path):
+        print(f"Loading SelectKBest from {selector_path}...")
+        with open(selector_path, 'rb') as f:
+            selector = pickle.load(f)
+        X_train_filtered_2 = selector.transform(X_train_filtered_1)
+        X_test_filtered_2 = selector.transform(X_test_filtered_1)
+    else:
+        print(f"Fitting SelectKBest and saving to {selector_path}...")
+        n_kept_active = np.sum(keep_mask_active)
+        k_val = min(5000, n_kept_active)
+        selector = SelectKBest(score_func=chi2, k=k_val)
+        X_train_filtered_2 = selector.fit_transform(X_train_filtered_1, y_train)
+        X_test_filtered_2 = selector.transform(X_test_filtered_1)
+        with open(selector_path, 'wb') as f:
+            pickle.dump(selector, f)
+            
     X_combined_filtered = sp.vstack([X_train_filtered_2, X_test_filtered_2], format='csr')
     
-    print("Fitting TruncatedSVD...")
-    svd = TruncatedSVD(n_components=512, random_state=42)
-    reduced_features = svd.fit_transform(X_combined_filtered)
+    # 3. TruncatedSVD
+    svd_path = 'svd.pkl'
+    if os.path.exists(svd_path):
+        print(f"Loading TruncatedSVD from {svd_path}...")
+        with open(svd_path, 'rb') as f:
+            svd = pickle.load(f)
+        reduced_features = svd.transform(X_combined_filtered)
+    else:
+        print(f"Fitting TruncatedSVD and saving to {svd_path}...")
+        svd = TruncatedSVD(n_components=512, random_state=42)
+        reduced_features = svd.fit_transform(X_combined_filtered)
+        with open(svd_path, 'wb') as f:
+            pickle.dump(svd, f)
     
-    max_test_sim = compute_max_tanimoto(fp_train_ecfp4, fp_test_ecfp4)
+    # 4. max_test_sim
+    max_sim_path = 'max_test_sim.pkl'
+    if os.path.exists(max_sim_path):
+        print(f"Loading max_test_sim from {max_sim_path}...")
+        with open(max_sim_path, 'rb') as f:
+            max_test_sim = pickle.load(f)
+    else:
+        print(f"Computing max_test_sim and saving to {max_sim_path}...")
+        max_test_sim = compute_max_tanimoto(fp_train_ecfp4, fp_test_ecfp4)
+        with open(max_sim_path, 'wb') as f:
+            pickle.dump(max_test_sim, f)
     
     return reduced_features, max_test_sim, keep_mask_active, selector, svd, y_train
 
@@ -205,12 +251,14 @@ class CrosstalkPipeline(BaseEstimator, ClassifierMixin):
 CrosstalkPipeline.__module__ = "train_model"
 
 
-def main() -> None:
+def main():
     download_data()
     seed_everything(SEED_MLP)
     
-    df_train_meta = pd.read_parquet(_P.train_path, columns=['DELLabel'])
-    df_test_meta = pd.read_parquet(_P.test_path, columns=['RandomID'])
+    df_train_meta_full = pd.read_parquet(_P.train_path, columns=['DELLabel'])
+    df_test_meta_full = pd.read_parquet(_P.test_path, columns=['RandomID'])
+    df_train_meta = df_train_meta_full#.iloc[:5000]#.sample(n=5000,random_state=42)
+    df_test_meta = df_test_meta_full#.iloc[:5000]#.sample(n=5000, random_state=42)
     test_ids = df_test_meta['RandomID'].values
     
     reduced_features, max_test_sim, keep_mask_active, selector, svd, y_train = get_or_create_features()
@@ -252,13 +300,16 @@ def main() -> None:
     
     val_dataset = TabularDataset(X_val, y_val, w_val)
     val_dataloader = DataLoader(val_dataset, batch_size=1024, shuffle=False)
-    
+    print(f"{X_tr.sum():.8f}")
+    print(f"{sample_weights.sum():.8f}")
     epochs = 50
-    for epoch in range(epochs):
+    for epoch in tqdm.tqdm(range(epochs)):
         model.train()
         train_loss = 0
         train_steps = 0
         for X_b, y_b, w_b in train_dataloader:
+            #print(X_b.sum(), y_b.sum(), w_b.sum())
+            #print("X_b start:", X_b[0, :5].tolist())
             X_b, y_b, w_b = X_b.to(device), y_b.to(device), w_b.to(device)
             optimizer.zero_grad()
             logits = model(X_b)
@@ -290,13 +341,13 @@ def main() -> None:
         val_preds_all = np.concatenate(val_preds)
         val_targets_all = np.concatenate(val_targets)
     
-    metrics = src.eval.evaluate(val_targets_all, val_preds_all)        
-    print("\nLocal Validation Split Metrics (with 95% Confidence Intervals):")
-    for name, res in metrics.items():
-        print(
-            f"  {name:25s}: {res['val']:.4f} "
-            f"(95% CI: [{res['lower']:.4f}, {res['upper']:.4f}])"
-        )
+    #metrics = src.eval.evaluate(val_targets_all, val_preds_all)        
+    #print("\nLocal Validation Split Metrics (with 95% Confidence Intervals):")
+    #for name, res in metrics.items():
+    #    print(
+    #        f"  {name:25s}: {res['val']:.4f} "
+    #        f"(95% CI: [{res['lower']:.4f}, {res['upper']:.4f}])"
+    #    )
             
     # # Save raw PyTorch model
     # os.makedirs("models", exist_ok=True)

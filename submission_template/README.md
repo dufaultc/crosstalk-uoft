@@ -22,6 +22,11 @@ submission_template/
 ├── requirements.txt      <- Package requirements
 ├── train_model.py        <- Training script (saves our model and generates predictions)
 ├── usage.py              <- Example usage script
+├── generate_submission.py<- Generate predictions for entire test set with the trained model.
+├── keep_mask_active.pkl  <- Used in data preprocessing to select non-zero columns.
+├── selector.pkl          <- Used in data preprocessing to select columns which were selected with chi-squared feature selection.
+├── svd.pkl               <- Used in data preprocessing to perform dimensionality reduction.
+├── max_test_sim.pkl      <- Used in data preprocessing to calculate sample weights.
 ├── data/
 │   └── README.md         <- Dataset setup instructions
 ├── models/
@@ -35,7 +40,7 @@ submission_template/
 ---
 
 ## How to Run
-To be sure you can recreate our exact results I suggest installing Miniconda `curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh` and create a conda environment with python version `3.12.12`. Activate this environment then follow the steps below.
+To be sure you can recreate our results I suggest installing Miniconda `curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh` and create a conda environment with python version `3.12.12`. Activate this environment then follow the steps below to run our training and generate results. You can also just run our saved model to generate predictions using `usage.py` or `generate_submission.py`. Just running our saved model you should be able to get the exact same top 200 molecules, however due to the unavoidable non-determinism of training pytorch models like ours on different machines with different specs, you are unlikely to get the same hits if you retrain our model on your machine. I can demonstrate that the trained model saved here can be replicated using my machine if needed.
 
 1. **Install packages**:
    ```bash
@@ -46,7 +51,7 @@ To be sure you can recreate our exact results I suggest installing Miniconda `cu
    ```bash
    python train_model.py
    ```
-   This script will run your local validation with confidence intervals, train the final model on all data, save it to `models/best_model.pkl`, and output `submission.csv`. We package the pytorch model as well as the objects we create for data preprocessing into a single wrapper, which contains methods so that the model can be used like an sklearn model.
+   This script will train the model, save it to `models/best_model.pkl`, and output `submission.csv`. We package the pytorch model as well as the objects we create for data preprocessing into a single wrapper, which contains methods so that the model can be used like an sklearn model. Objects used in data preprocessing are loaded if they are present in the directory, otherwise they are created.
 
 
-`usage.py` demonstrates how the saved model can be loaded and new predictions can be made.
+`usage.py` demonstrates how the saved model can be loaded and new predictions can be made. `generate_submission.py` uses our saved model to generate a `submission.csv` file with predictions for the entire test dataset.
